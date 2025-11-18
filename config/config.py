@@ -1,0 +1,2 @@
+API_URL = "http://localhost:8000"
+OPENROUTER_API_KEY = "YOUR_KEY_HERE"
