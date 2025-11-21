@@ -3,81 +3,72 @@ import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 import logging
+from requests import Session
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Create a requests session with User-Agent and retry logic
+session = Session()
+session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+})
+retry = Retry(total=3, backoff_factor=0.3, status_forcelist=[429, 500, 502, 503, 504])
+adapter = HTTPAdapter(max_retries=retry)
+session.mount('http://', adapter)
+session.mount('https://', adapter)
 
 class YFinanceHelper:
     '''
     Comprehensive yfinance helper for production-grade financial data
     Handles: prices, company info, financials, ratios, news, recommendations
     '''
-    
+
     # ============= PRICE & HISTORICAL DATA =============
-    
+
     @staticmethod
     def get_price(ticker: str, period: str = '5d') -> Dict[str, Any]:
-        '''
-        Get comprehensive stock price data with historical context
-        
-        Args:
-            ticker: Stock ticker symbol (e.g., 'AAPL', 'RELIANCE.NS')
-            period: Time period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
-        
-        Returns:
-            Dict with current price, change, volume, historical data
-        '''
         try:
             logger.info(f'Fetching price data for {ticker}, period: {period}')
-            
-            # Download historical data
             stock = yf.Ticker(ticker)
             data = stock.history(period=period)
-            
             if data.empty or len(data) == 0:
                 return {'error': f'No data found for ticker: {ticker}'}
-            
-            # Extract Close and Volume columns (guaranteed to be 1D Series with .history())
+
             close_prices = data['Close']
             volumes = data['Volume'] if 'Volume' in data.columns else None
-            
-            # Calculate metrics
+
             current_price = float(close_prices.iloc[-1])
             previous_price = float(close_prices.iloc[-2]) if len(close_prices) > 1 else current_price
             change_pct = ((current_price - previous_price) / previous_price * 100) if previous_price != 0 else 0
-            
-            # Get 52-week high/low
+
             high_52w = float(close_prices.max()) if len(close_prices) > 1 else current_price
             low_52w = float(close_prices.min()) if len(close_prices) > 1 else current_price
-            
-            # Average volume
+
             avg_volume = 0
             current_volume = 0
             if volumes is not None and len(volumes) > 0:
                 avg_volume = int(volumes.mean())
                 current_volume = int(volumes.iloc[-1])
-            
-            # Historical data for charts
+
             historical = []
             for idx in range(len(close_prices)):
                 date = close_prices.index[idx]
                 price = close_prices.iloc[idx]
-                
-                # Handle different date formats
                 if isinstance(date, str):
                     date_str = date
                 elif hasattr(date, 'strftime'):
                     date_str = date.strftime('%Y-%m-%d')
                 else:
                     date_str = str(date)[:10]
-                
                 historical.append({
                     'date': date_str,
                     'price': round(float(price), 2)
                 })
-            
+
             return {
                 'ticker': ticker.upper(),
                 'current_price': round(current_price, 2),
@@ -93,22 +84,20 @@ class YFinanceHelper:
                 'historical_data': historical[-30:],  # Last 30 data points
                 'period': period
             }
-            
+
         except Exception as e:
             logger.error(f'Error fetching price for {ticker}: {str(e)}')
             return {'error': f'Failed to fetch price data: {str(e)}'}
-    
-    
+
     # ============= COMPANY INFORMATION =============
-    
+
     @staticmethod
     def get_company_info(ticker: str) -> Dict[str, Any]:
-        '''Get comprehensive company information'''
         try:
             logger.info(f'Fetching company info for {ticker}')
             stock = yf.Ticker(ticker)
             info = stock.info
-            
+
             return {
                 'ticker': ticker.upper(),
                 'company_name': info.get('longName', 'N/A'),
@@ -125,18 +114,16 @@ class YFinanceHelper:
         except Exception as e:
             logger.error(f'Error fetching company info for {ticker}: {str(e)}')
             return {'error': f'Failed to fetch company info: {str(e)}'}
-    
-    
+
     # ============= KEY STATISTICS & RATIOS =============
-    
+
     @staticmethod
     def get_key_stats(ticker: str) -> Dict[str, Any]:
-        '''Get key financial statistics and valuation metrics'''
         try:
             logger.info(f'Fetching key stats for {ticker}')
             stock = yf.Ticker(ticker)
             info = stock.info
-            
+
             return {
                 'ticker': ticker.upper(),
                 'market_cap': info.get('marketCap', 'N/A'),
@@ -176,28 +163,26 @@ class YFinanceHelper:
         except Exception as e:
             logger.error(f'Error fetching stats for {ticker}: {str(e)}')
             return {'error': f'Failed to fetch statistics: {str(e)}'}
-    
-    
+
     # ============= FINANCIAL STATEMENTS =============
-    
+
     @staticmethod
     def get_financials(ticker: str) -> Dict[str, Any]:
-        '''Get complete financial statements'''
         try:
             logger.info(f'Fetching financials for {ticker}')
             stock = yf.Ticker(ticker)
-            
+
             income_stmt = stock.financials
             balance_sheet = stock.balance_sheet
             cash_flow = stock.cashflow
-            
+
             def extract_latest(df):
                 if df is None or df.empty:
                     return {}
                 latest_col = df.columns[0]
-                return {str(idx): float(val) if pd.notna(val) else None 
-                       for idx, val in df[latest_col].items()}
-            
+                return {str(idx): float(val) if pd.notna(val) else None
+                        for idx, val in df[latest_col].items()}
+
             return {
                 'ticker': ticker.upper(),
                 'income_statement': extract_latest(income_stmt),
@@ -208,88 +193,59 @@ class YFinanceHelper:
         except Exception as e:
             logger.error(f'Error fetching financials for {ticker}: {str(e)}')
             return {'error': f'Failed to fetch financial statements: {str(e)}'}
-    
-    
+
     # ============= NEWS & RECOMMENDATIONS =============
-    
+
     @staticmethod
     def get_news(ticker: str, limit: int = 10) -> Dict[str, Any]:
-        '''Get recent news articles for a stock'''
         try:
             logger.info(f'Fetching news for {ticker}, limit: {limit}')
             stock = yf.Ticker(ticker)
-            news = stock.news
-            
+            raw_news = stock.news if hasattr(stock, 'news') and stock.news else []
             articles = []
-            for article in news[:limit]:
-                articles.append({
-                    'title': article.get('title', 'N/A'),
-                    'publisher': article.get('publisher', 'N/A'),
-                    'link': article.get('link', 'N/A'),
-                    'published': datetime.fromtimestamp(
-                        article.get('providerPublishTime', 0)
-                    ).strftime('%Y-%m-%d %H:%M:%S') if article.get('providerPublishTime') else 'N/A'
-                })
-            
-            return {
-                'ticker': ticker.upper(),
-                'news_count': len(articles),
-                'articles': articles
-            }
+            for item in raw_news[:limit]:
+                content = item.get('content', {})
+                title = content.get('title', '')
+                link_obj = content.get('clickThroughUrl', {})
+                link = link_obj.get('url', '') if isinstance(link_obj, dict) else ''
+                if not title or not link:
+                    continue
+                provider = content.get('provider', {})
+                publisher = provider.get('displayName', 'Unknown') if isinstance(provider, dict) else 'Unknown'
+                pub_date = content.get('pubDate', '')
+                articles.append({'title': title, 'publisher': publisher, 'link': link, 'published': pub_date})
+            return {'ticker': ticker.upper(), 'news_count': len(articles), 'articles': articles}
         except Exception as e:
             logger.error(f'Error fetching news for {ticker}: {str(e)}')
-            return {'error': f'Failed to fetch news: {str(e)}'}
-    
+            return {'ticker': ticker.upper(), 'news_count': 0, 'articles': []}
     
     @staticmethod
-    def get_recommendations(ticker: str) -> Dict[str, Any]:
-        '''Get analyst recommendations'''
+    def get_recommendation_summary(ticker: str) -> Dict[str, Any]:
+        """
+        Fetch overall analyst sentiment: 'strong_buy', 'buy', etc.
+        """
         try:
-            logger.info(f'Fetching recommendations for {ticker}')
             stock = yf.Ticker(ticker)
-            recommendations = stock.recommendations
-            
-            if recommendations is None or recommendations.empty:
-                return {'ticker': ticker.upper(), 'recommendations': []}
-            
-            recent = recommendations.tail(10)
-            recs = []
-            for idx, row in recent.iterrows():
-                if hasattr(idx, 'strftime'):
-                    date_str = idx.strftime('%Y-%m-%d')
-                else:
-                    date_str = str(idx)[:10]
-                
-                recs.append({
-                    'date': date_str,
-                    'firm': row.get('Firm', 'N/A'),
-                    'to_grade': row.get('To Grade', 'N/A'),
-                    'from_grade': row.get('From Grade', 'N/A'),
-                    'action': row.get('Action', 'N/A')
-                })
-            
-            return {
-                'ticker': ticker.upper(),
-                'recommendations': recs
-            }
+            info = stock.info
+            rec = info.get("recommendationKey", "N/A")
+            return {"ticker": ticker.upper(), "analyst_rating": rec}
         except Exception as e:
-            logger.error(f'Error fetching recommendations for {ticker}: {str(e)}')
-            return {'error': f'Failed to fetch recommendations: {str(e)}'}
-    
-    
+            logger.error(f"Error fetching recommendation summary for {ticker}: {str(e)}")
+            return {"ticker": ticker.upper(), "analyst_rating": "N/A", "error": str(e)}
+
+
     # ============= COMPARISON & ANALYSIS =============
-    
+
     @staticmethod
     def compare_stocks(tickers: List[str]) -> Dict[str, Any]:
-        '''Compare multiple stocks side by side'''
         try:
             logger.info(f'Comparing stocks: {tickers}')
             comparison = {}
-            
+
             for ticker in tickers:
                 stats = YFinanceHelper.get_key_stats(ticker)
                 price = YFinanceHelper.get_price(ticker, period='1mo')
-                
+
                 comparison[ticker.upper()] = {
                     'current_price': price.get('current_price'),
                     'change_pct': price.get('change_pct'),
@@ -300,24 +256,19 @@ class YFinanceHelper:
                     'dividend_yield': stats.get('dividend_yield'),
                     'recommendation': stats.get('recommendation')
                 }
-            
-            return {
-                'comparison': comparison,
-                'tickers': [t.upper() for t in tickers]
-            }
+
+            return {'comparison': comparison, 'tickers': [t.upper() for t in tickers]}
         except Exception as e:
             logger.error(f'Error comparing stocks: {str(e)}')
             return {'error': f'Failed to compare stocks: {str(e)}'}
-    
-    
+
     # ============= MARKET SUMMARY =============
-    
+
     @staticmethod
     def get_market_summary() -> Dict[str, Any]:
-        '''Get overall market summary with major indices'''
         try:
             logger.info('Fetching market summary')
-            
+
             indices = {
                 'S&P 500': '^GSPC',
                 'NASDAQ': '^IXIC',
@@ -326,7 +277,7 @@ class YFinanceHelper:
                 'SENSEX': '^BSESN',
                 'Russell 2000': '^RUT'
             }
-            
+
             summary = {}
             for name, ticker in indices.items():
                 try:
@@ -337,7 +288,7 @@ class YFinanceHelper:
                         current = float(closes.iloc[-1])
                         previous = float(closes.iloc[-2]) if len(closes) > 1 else current
                         change_pct = ((current - previous) / previous * 100) if previous != 0 else 0
-                        
+
                         summary[name] = {
                             'value': round(current, 2),
                             'change_pct': round(change_pct, 2),
@@ -345,25 +296,20 @@ class YFinanceHelper:
                         }
                 except:
                     continue
-            
-            return {
-                'indices': summary,
-                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            }
+
+            return {'indices': summary, 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         except Exception as e:
             logger.error(f'Error fetching market summary: {str(e)}')
             return {'error': f'Failed to fetch market summary: {str(e)}'}
-    
-    
+
     # ============= INDIAN MARKET SUPPORT =============
-    
+
     @staticmethod
     def search_indian_ticker(company_name: str) -> Dict[str, Any]:
-        '''Search for Indian stock ticker by company name'''
         try:
             suffixes = ['.NS', '.BO']
             clean_name = company_name.upper().replace(' ', '')
-            
+
             results = []
             for suffix in suffixes:
                 ticker = clean_name + suffix
@@ -378,34 +324,27 @@ class YFinanceHelper:
                         })
                 except:
                     continue
-            
-            return {
-                'query': company_name,
-                'results': results
-            }
+
+            return {'query': company_name, 'results': results}
         except Exception as e:
             logger.error(f'Error searching ticker: {str(e)}')
             return {'error': f'Failed to search ticker: {str(e)}'}
 
-    
     # ============= SMART TICKER DETECTION =============
-    
+
     @staticmethod
     def find_ticker(query: str) -> Optional[str]:
         """
         Intelligently find ticker symbol from user query
         Handles: company names, ticker symbols, fuzzy matching
-        
+
         Returns: Ticker symbol if found, None otherwise
         """
         try:
-            # First, check if query contains a valid ticker (all caps 1-5 letters)
             import re
             words = query.upper().split()
             for word in words:
-                # Check if it looks like a ticker (1-5 uppercase letters)
                 if re.match(r'^[A-Z]{1,5}$', word):
-                    # Validate it exists
                     try:
                         stock = yf.Ticker(word)
                         info = stock.info
@@ -414,26 +353,21 @@ class YFinanceHelper:
                             return word
                     except:
                         pass
-            
-            # If no direct ticker found, try to extract company name and search
-            # Remove common query words
-            stop_words = ['what', 'is', 'the', 'price', 'of', 'stock', 'show', 'me', 
-                         'get', 'tell', 'about', 'current', 'today', 'trading', 'at']
-            
+
+            stop_words = ['what', 'is', 'the', 'price', 'of', 'stock', 'show', 'me',
+                          'get', 'tell', 'about', 'current', 'today', 'trading', 'at']
+
             clean_query = query.lower()
             for word in stop_words:
                 clean_query = clean_query.replace(word, '')
-            
+
             clean_query = clean_query.strip()
-            
+
             if not clean_query:
                 return None
-            
-            # Try common company name patterns
-            # Example: "apple" -> AAPL, "microsoft" -> MSFT
+
             possible_tickers = []
-            
-            # Try the cleaned query as ticker directly
+
             ticker_candidate = clean_query.upper().replace(' ', '')[:5]
             try:
                 stock = yf.Ticker(ticker_candidate)
@@ -442,11 +376,9 @@ class YFinanceHelper:
                     possible_tickers.append(ticker_candidate)
             except:
                 pass
-            
-            # Try first word capitalized + common suffixes
+
             first_word = clean_query.split()[0] if clean_query else ''
             if first_word:
-                # Try direct ticker
                 try:
                     stock = yf.Ticker(first_word.upper())
                     info = stock.info
@@ -454,8 +386,7 @@ class YFinanceHelper:
                         possible_tickers.append(first_word.upper())
                 except:
                     pass
-                
-                # For Indian companies, try with .NS suffix
+
                 try:
                     ticker_ns = first_word.upper() + '.NS'
                     stock = yf.Ticker(ticker_ns)
@@ -464,16 +395,14 @@ class YFinanceHelper:
                         possible_tickers.append(ticker_ns)
                 except:
                     pass
-            
-            # Return first valid ticker found
+
             if possible_tickers:
                 logger.info(f'Found ticker from query: {possible_tickers[0]}')
                 return possible_tickers[0]
-            
-            # If still nothing, log and return None
+
             logger.warning(f'Could not find ticker for query: {query}')
             return None
-            
+
         except Exception as e:
             logger.error(f'Error in find_ticker: {str(e)}')
             return None
