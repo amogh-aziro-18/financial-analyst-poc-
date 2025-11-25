@@ -1,4 +1,4 @@
-﻿import yfinance as yf
+import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
@@ -28,13 +28,12 @@ class YFinanceHelper:
     '''
 
     # ============= PRICE & HISTORICAL DATA =============
-
     @staticmethod
-    def get_price(ticker: str, period: str = '5d') -> Dict[str, Any]:
+    def get_price(ticker: str, period: str = '5d', interval: str = '1d') -> Dict[str, Any]:
         try:
-            logger.info(f'Fetching price data for {ticker}, period: {period}')
+            logger.info(f'Fetching price data for {ticker}, period: {period}, interval: {interval}')
             stock = yf.Ticker(ticker)
-            data = stock.history(period=period)
+            data = stock.history(period=period, interval=interval)  # Add interval here
             if data.empty or len(data) == 0:
                 return {'error': f'No data found for ticker: {ticker}'}
 
@@ -54,19 +53,31 @@ class YFinanceHelper:
                 avg_volume = int(volumes.mean())
                 current_volume = int(volumes.iloc[-1])
 
+            # Calculate returns (daily percent change)
+            pct_changes = close_prices.pct_change() * 100
+
             historical = []
             for idx in range(len(close_prices)):
                 date = close_prices.index[idx]
                 price = close_prices.iloc[idx]
+                ret = pct_changes.iloc[idx] if idx > 0 else None
+                
+                # Format datetime for intraday data
                 if isinstance(date, str):
                     date_str = date
                 elif hasattr(date, 'strftime'):
-                    date_str = date.strftime('%Y-%m-%d')
+                    # Include time for intraday intervals
+                    if interval in ['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1h']:
+                        date_str = date.strftime('%Y-%m-%d %H:%M:%S')
+                    else:
+                        date_str = date.strftime('%Y-%m-%d')
                 else:
-                    date_str = str(date)[:10]
+                    date_str = str(date)[:19] if interval in ['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1h'] else str(date)[:10]
+                
                 historical.append({
                     'date': date_str,
-                    'price': round(float(price), 2)
+                    'price': round(float(price), 2),
+                    'return_pct': round(float(ret), 4) if ret is not None and not pd.isna(ret) else None
                 })
 
             return {
@@ -81,8 +92,9 @@ class YFinanceHelper:
                 '52_week_low': round(low_52w, 2),
                 'distance_from_high': round(((current_price - high_52w) / high_52w) * 100, 2),
                 'distance_from_low': round(((current_price - low_52w) / low_52w) * 100, 2),
-                'historical_data': historical[-30:],  # Last 30 data points
-                'period': period
+                'historical_data': historical[-100:],  # Increased to 100 for intraday
+                'period': period,
+                'interval': interval  # Include interval in response
             }
 
         except Exception as e:
@@ -245,9 +257,14 @@ class YFinanceHelper:
             for ticker in tickers:
                 stats = YFinanceHelper.get_key_stats(ticker)
                 price = YFinanceHelper.get_price(ticker, period='1mo')
+                stock = yf.Ticker(ticker)
+                currency = stock.info.get('currency', 'USD')
+
+                 
 
                 comparison[ticker.upper()] = {
                     'current_price': price.get('current_price'),
+                     'currency': currency,  
                     'change_pct': price.get('change_pct'),
                     'market_cap': stats.get('market_cap'),
                     'pe_ratio': stats.get('trailing_pe'),
