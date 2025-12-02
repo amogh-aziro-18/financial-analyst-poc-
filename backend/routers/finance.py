@@ -2,7 +2,8 @@
 from pydantic import BaseModel
 from typing import Optional
 from backend.utils.yf_utils import YFinanceHelper
-from backend.NAV_Alert_Trigger import app as langgraph_app  # LangGraph compiled graph
+from backend.NAV_Alert_Trigger import app as langgraph_app 
+from backend.models.market_data import FinancialGraphRequest 
 import logging
 
 
@@ -23,10 +24,6 @@ class StockPriceRequest(BaseModel):
 
 class ChatbotQueryRequest(BaseModel):
     query: str
-
-
-class FinancialGraphRequest(BaseModel):
-    ticker: str
 
 
 class CompareStocksRequest(BaseModel):
@@ -213,6 +210,7 @@ def fetch_market_summary():
 async def run_financial_graph(request: FinancialGraphRequest):
     state = {
         "ticker": request.ticker,
+        "threshold": request.threshold,
         "price_data": {},
         "analysis": {},
         "alert": {}

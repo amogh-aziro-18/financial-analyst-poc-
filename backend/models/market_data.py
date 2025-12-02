@@ -6,6 +6,7 @@ class StockPriceRequest(BaseModel):
     '''Request model for stock price queries'''
     ticker: str = Field(..., description='Stock ticker symbol (e.g., AAPL, RELIANCE.NS)')
     period: str = Field('5d', description='Time period: 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max')
+    interval: Optional[str] = Field(None, description='Data interval: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo')
     
     @validator('ticker')
     def ticker_must_be_valid(cls, v):
@@ -19,8 +20,15 @@ class StockPriceRequest(BaseModel):
         if v not in valid_periods:
             raise ValueError(f'Period must be one of: {valid_periods}')
         return v
-
-
+    
+    @validator('interval')
+    def interval_must_be_valid(cls, v):
+        if v is None:
+            return v
+        valid_intervals = ['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1h', '1d', '5d', '1wk', '1mo', '3mo']
+        if v not in valid_intervals:
+            raise ValueError(f'Interval must be one of: {valid_intervals}')
+        return v
 class ChatbotQueryRequest(BaseModel):
     '''Request model for chatbot queries'''
     query: str = Field(..., description='Natural language financial query')
@@ -49,16 +57,21 @@ class CompareStocksRequest(BaseModel):
 
 
 class FinancialGraphRequest(BaseModel):
-    '''Request model for LangGraph agent queries'''
-    query: str = Field(..., description='Complex financial analysis query')
-    parameters: Optional[Dict[str, Any]] = Field(None, description='Additional parameters for the agent')
+    '''Request model for NAV Alert with user-defined threshold'''
+    ticker: str = Field(..., description='Stock ticker symbol (e.g., AAPL, RELIANCE.NS)')
+    threshold: float = Field(5.0, description='NAV drop threshold percentage (default: 5.0)')
     
-    @validator('query')
-    def query_not_empty(cls, v):
+    @validator('ticker')
+    def ticker_not_empty(cls, v):
         if not v or len(v.strip()) == 0:
-            raise ValueError('Query cannot be empty')
-        return v.strip()
-
+            raise ValueError('Ticker cannot be empty')
+        return v.strip().upper()
+    
+    @validator('threshold')
+    def threshold_valid(cls, v):
+        if v <= 0 or v > 100:
+            raise ValueError('Threshold must be between 0 and 100')
+        return v
 
 # Response models (optional but good practice)
 
