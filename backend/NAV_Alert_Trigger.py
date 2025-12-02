@@ -5,6 +5,7 @@ from typing import TypedDict
 # Define a custom state schema for your workflow
 class FinancialState(TypedDict):
     ticker: str
+    threshold: float  # ADD THIS LINE
     price_data: dict
     analysis: dict
     alert: dict
@@ -16,23 +17,50 @@ def fetch_node(state: FinancialState):
     return {"price_data": result}
 
 def analyze_node(state: FinancialState):
+    """Analyze price data and check against user-defined threshold"""
     price_data = state["price_data"].get("data")
+    threshold = state.get("threshold", 5.0)  # Get threshold from state
+    
     if price_data:
-        result = check_NAV_drop(price_data)
+        # Pass threshold to check_NAV_drop
+        result = check_NAV_drop(price_data, threshold)  # ADD threshold parameter
         return {"analysis": result}
     else:
         return {"analysis": {"success": False, "error": "No price data"}}
     
 def alert_node(state: FinancialState):
+    """Trigger alert if threshold exceeded"""
     analysis = state.get("analysis", {})
     analysis_data = analysis.get("data", {})
+    threshold = state.get("threshold", 5.0)
+    
     if not analysis.get("success", False):
         return {"alert": {"success": False, "error": "No analysis data"}}
 
     if analysis_data.get("alert_triggered"):
-        return {"alert": {"success": True, "alert_status": "ALERT", "message": "Alert triggered due to drop."}}
+        drop_pct = analysis_data.get("drop_percentage", 0)
+        severity = analysis_data.get("severity", "MEDIUM")
+        return {
+            "alert": {
+                "success": True, 
+                "alert_status": "ALERT", 
+                "message": f"⚠️ [{severity}] Alert! Drop of {drop_pct:.2f}% exceeds {threshold}% threshold",
+                "drop_percentage": drop_pct,
+                "threshold": threshold,
+                "severity": severity
+            }
+        }
     else:
-        return {"alert": {"success": True, "alert_status": "NO ALERT", "message": "No alert triggered."}}
+        change_pct = analysis_data.get("drop_percentage", 0)
+        return {
+            "alert": {
+                "success": True, 
+                "alert_status": "NO ALERT", 
+                "message": f"✅ No alert. Price change {change_pct:.2f}% within {threshold}% threshold",
+                "threshold": threshold
+            }
+        }
+
 # Create the StateGraph
 graph = StateGraph(FinancialState)
 
@@ -51,9 +79,10 @@ graph.add_edge("alert", END)
 app = graph.compile()
 
 if __name__ == "__main__":
-    # Run the workflow
+    # Test with custom threshold
     initial_state = {
         "ticker": "RELIANCE.NS",
+        "threshold": 3.0,  # Test with 3% threshold
         "price_data": {},
         "analysis": {},
         "alert": {}
