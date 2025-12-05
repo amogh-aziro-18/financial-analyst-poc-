@@ -29,40 +29,51 @@ class YFinanceHelper:
 
     # ============= PRICE & HISTORICAL DATA =============
     @staticmethod
-    def get_price(ticker: str, period: str = '5d', interval: str = '1d') -> Dict[str, Any]:
+    def get_price(ticker: str, period: str = '5d', interval: str = None) -> Dict[str, Any]:
         try:
             logger.info(f'Fetching price data for {ticker}, period: {period}, interval: {interval}')
             stock = yf.Ticker(ticker)
-            data = stock.history(period=period, interval=interval)  # Add interval here
+            
+            # Use interval if provided, otherwise yfinance auto-selects based on period
+            if interval:
+                data = stock.history(period=period, interval=interval)
+            else:
+                data = stock.history(period=period, interval='1d')
+                
             if data.empty or len(data) == 0:
                 return {'error': f'No data found for ticker: {ticker}'}
 
+            # Get OHLCV columns
             close_prices = data['Close']
+            open_prices = data['Open'] if 'Open' in data.columns else None
+            high_prices = data['High'] if 'High' in data.columns else None
+            low_prices = data['Low'] if 'Low' in data.columns else None
             volumes = data['Volume'] if 'Volume' in data.columns else None
 
-            current_price = float(close_prices.iloc[-1])
-            previous_price = float(close_prices.iloc[-2]) if len(close_prices) > 1 else current_price
-            change_pct = ((current_price - previous_price) / previous_price * 100) if previous_price != 0 else 0
+            # Current day/period values (most recent)
+            current_close = float(close_prices.iloc[-1])
+            current_open = float(open_prices.iloc[-1]) if open_prices is not None else current_close
+            current_high = float(high_prices.iloc[-1]) if high_prices is not None else current_close
+            current_low = float(low_prices.iloc[-1]) if low_prices is not None else current_close
+            current_volume = int(volumes.iloc[-1]) if volumes is not None and len(volumes) > 0 else 0
+            
+            # Previous close for change calculation
+            previous_close = float(close_prices.iloc[-2]) if len(close_prices) > 1 else current_close
+            change_pct = ((current_close - previous_close) / previous_close * 100) if previous_close != 0 else 0
 
-            high_52w = float(close_prices.max()) if len(close_prices) > 1 else current_price
-            low_52w = float(close_prices.min()) if len(close_prices) > 1 else current_price
+            # 52-week high/low
+            high_52w = float(close_prices.max()) if len(close_prices) > 1 else current_close
+            low_52w = float(close_prices.min()) if len(close_prices) > 1 else current_close
 
-            avg_volume = 0
-            current_volume = 0
-            if volumes is not None and len(volumes) > 0:
-                avg_volume = int(volumes.mean())
-                current_volume = int(volumes.iloc[-1])
+            # Average volume
+            avg_volume = int(volumes.mean()) if volumes is not None and len(volumes) > 0 else 0
 
-            # Calculate returns (daily percent change)
-            pct_changes = close_prices.pct_change() * 100
-
+            # Build historical OHLCV data
             historical = []
-            for idx in range(len(close_prices)):
-                date = close_prices.index[idx]
-                price = close_prices.iloc[idx]
-                ret = pct_changes.iloc[idx] if idx > 0 else None
+            for idx in range(len(data)):
+                date = data.index[idx]
                 
-                # Format datetime for intraday data
+                # Format datetime
                 if isinstance(date, str):
                     date_str = date
                 elif hasattr(date, 'strftime'):
@@ -74,27 +85,51 @@ class YFinanceHelper:
                 else:
                     date_str = str(date)[:19] if interval in ['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1h'] else str(date)[:10]
                 
-                historical.append({
+                # OHLCV values
+                ohlcv_data = {
                     'date': date_str,
-                    'price': round(float(price), 2),
-                    'return_pct': round(float(ret), 4) if ret is not None and not pd.isna(ret) else None
-                })
+                    'open': round(float(data['Open'].iloc[idx]), 2) if 'Open' in data.columns else None,
+                    'high': round(float(data['High'].iloc[idx]), 2) if 'High' in data.columns else None,
+                    'low': round(float(data['Low'].iloc[idx]), 2) if 'Low' in data.columns else None,
+                    'close': round(float(data['Close'].iloc[idx]), 2),
+                    'volume': int(data['Volume'].iloc[idx]) if 'Volume' in data.columns else None
+                }
+                
+                # Calculate return percentage
+                if idx > 0:
+                    prev_close = float(data['Close'].iloc[idx-1])
+                    curr_close = float(data['Close'].iloc[idx])
+                    returns = ((curr_close - prev_close) / prev_close * 100) if prev_close != 0 else 0
+                    ohlcv_data['return_pct'] = round(returns, 4)
+                else:
+                    ohlcv_data['return_pct'] = None
+                
+                historical.append(ohlcv_data)
 
             return {
                 'ticker': ticker.upper(),
-                'current_price': round(current_price, 2),
-                'previous_price': round(previous_price, 2),
+                # Today's/Current OHLCV
+                'current_open': round(current_open, 2),
+                'current_high': round(current_high, 2),
+                'current_low': round(current_low, 2),
+                'current_price': round(current_close, 2),
+                'current_volume': current_volume,
+                # Change from previous
+                'previous_price': round(previous_close, 2),
                 'change_pct': round(change_pct, 2),
-                'change_amount': round(current_price - previous_price, 2),
+                'change_amount': round(current_close - previous_close, 2),
+                # Volume stats
                 'volume': current_volume,
                 'avg_volume': avg_volume,
+                # 52-week range
                 '52_week_high': round(high_52w, 2),
                 '52_week_low': round(low_52w, 2),
-                'distance_from_high': round(((current_price - high_52w) / high_52w) * 100, 2),
-                'distance_from_low': round(((current_price - low_52w) / low_52w) * 100, 2),
-                'historical_data': historical[-100:],  # Increased to 100 for intraday
+                'distance_from_high': round(((current_close - high_52w) / high_52w) * 100, 2),
+                'distance_from_low': round(((current_close - low_52w) / low_52w) * 100, 2),
+                # Historical OHLCV data
+                'historical_data': historical[-100:],  # Last 100 data points
                 'period': period,
-                'interval': interval  # Include interval in response
+                'interval': interval if interval else '1d'
             }
 
         except Exception as e:
@@ -245,7 +280,6 @@ class YFinanceHelper:
             logger.error(f"Error fetching recommendation summary for {ticker}: {str(e)}")
             return {"ticker": ticker.upper(), "analyst_rating": "N/A", "error": str(e)}
 
-
     # ============= COMPARISON & ANALYSIS =============
 
     @staticmethod
@@ -260,11 +294,9 @@ class YFinanceHelper:
                 stock = yf.Ticker(ticker)
                 currency = stock.info.get('currency', 'USD')
 
-                 
-
                 comparison[ticker.upper()] = {
                     'current_price': price.get('current_price'),
-                     'currency': currency,  
+                    'currency': currency,  
                     'change_pct': price.get('change_pct'),
                     'market_cap': stats.get('market_cap'),
                     'pe_ratio': stats.get('trailing_pe'),

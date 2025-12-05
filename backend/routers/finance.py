@@ -5,14 +5,12 @@ from backend.utils.yf_utils import YFinanceHelper
 from backend.NAV_Alert_Trigger import app as langgraph_app 
 from backend.models.market_data import FinancialGraphRequest 
 import logging
-
+import yfinance as yf
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 router = APIRouter()
-
 
 # ========== PYDANTIC MODELS ==========
 
@@ -21,14 +19,11 @@ class StockPriceRequest(BaseModel):
     period: str = "5d"
     interval: Optional[str] = "1d"
 
-
 class ChatbotQueryRequest(BaseModel):
     query: str
 
-
 class CompareStocksRequest(BaseModel):
     tickers: list[str]
-
 
 # ========== ENDPOINTS ==========
 
@@ -49,7 +44,11 @@ def fetch_stock_price(request: StockPriceRequest):
         response = {
             'ticker': request.ticker.upper(),
             'price_data': {
+                'current_open': price_data.get('current_open'),
+                'current_high': price_data.get('current_high'),
+                'current_low': price_data.get('current_low'),
                 'current_price': price_data.get('current_price'),
+                'current_volume': price_data.get('current_volume'),
                 'change_pct': price_data.get('change_pct'),
                 'change_amount': price_data.get('change_amount'),
                 'previous_close': price_data.get('previous_price'),
@@ -90,7 +89,6 @@ def fetch_stock_price(request: StockPriceRequest):
     except Exception as e:
         logger.error(f'Error in fetch_stock_price: {str(e)}')
         raise HTTPException(status_code=500, detail=f'Internal server error: {str(e)}')
-
 
 # 2. Fetch Financials
 @router.get("/get_financials")
@@ -166,7 +164,6 @@ def fetch_financials(
         logger.error(f"Error in fetch_financials: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-
 # 3. Market Summary
 @router.get('/get_summary')
 def fetch_market_summary():
@@ -204,7 +201,6 @@ def fetch_market_summary():
         logger.error(f'Error in fetch_market_summary: {str(e)}')
         raise HTTPException(status_code=500, detail=f'Internal server error: {str(e)}')
 
-
 # 4. Run LangGraph Financial Graph
 @router.post("/run_NAV_Alert_Trigger")
 async def run_financial_graph(request: FinancialGraphRequest):
@@ -221,7 +217,6 @@ async def run_financial_graph(request: FinancialGraphRequest):
     except Exception as e:
         logger.error(f"Error invoking LangGraph: {str(e)}")
         raise HTTPException(status_code=500, detail="Error running LangGraph workflow.")
-
 
 # 5. Intelligent Chatbot Query
 @router.post('/chatbot_query')
