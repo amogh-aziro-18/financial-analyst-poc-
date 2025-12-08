@@ -1,0 +1,136 @@
+/* Global Variables are now injected dynamically via Streamlit */
+
+/* Streamlit Overrides */
+.stApp {
+    background-color: var(--bg-color);
+    font-family: var(--font-family);
+    color: var(--text-color);
+}
+
+/* Sidebar Styling */
+[data-testid="stSidebar"] {
+    background-color: var(--sidebar-bg);
+    border-right: 1px solid var(--border-color);
+}
+
+[data-testid="stSidebar"] * {
+    color: var(--text-color) !important;
+}
+
+[data-testid="stSidebar"] .stMarkdown,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] .stRadio label,
+[data-testid="stSidebar"] .stSelectbox label {
+    color: var(--text-color) !important;
+}
+
+/* Titles and Headers */
+h1,
+h2,
+h3 {
+    color: var(--text-color) !important;
+    font-weight: 700 !important;
+}
+
+h1 {
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 1rem;
+}
+
+/* Cards & Containers */
+.css-card {
+    background-color: var(--card-bg);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+    border: 1.5px solid var(--border-color);
+    margin-bottom: 1rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.css-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+    border-color: var(--primary-color);
+}
+
+/* Metrics */
+[data-testid="stMetricValue"] {
+    font-size: 2rem !important;
+    font-weight: 700 !important;
+    color: var(--text-color) !important;
+}
+
+[data-testid="stMetricDelta"] {
+    font-weight: 600 !important;
+}
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] button {
+    color: var(--text-color) !important;
+}
+
+.stTabs [data-baseweb="tab-panel"] {
+    color: var(--text-color) !important;
+}
+
+/* Chat Interface */
+.stChatMessage {
+    background-color: transparent !important;
+    border: none !important;
+}
+
+[data-testid="stChatMessageContent"] {
+    background-color: var(--card-bg) !important;
+    border-radius: 12px !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-color) !important;
+}
+
+/* Buttons */
+.stButton button {
+    background: linear-gradient(90deg, var(--primary-color), #00A3FF);
+    color: #fff !important;
+    font-weight: 600 !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 0.5rem 1.5rem !important;
+    transition: opacity 0.2s ease;
+}
+
+.stButton button:hover {
+    opacity: 0.9;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+}
+
+/* Inputs */
+.stTextInput input,
+.stSelectbox select {
+    background-color: var(--input-bg) !important;
+    color: var(--text-color) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px !important;
+}
+
+.stTextInput input:focus {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 1px var(--primary-color) !important;
+}
+
+/* Plotly Charts */
+.js-plotly-plot .plotly .main-svg {
+    background: transparent !important;
+}
+
+/* Markdown text */
+.stMarkdown {
+    color: var(--text-color) !important;
+}
+
+/* Info/Warning/Success boxes */
+.stAlert {
+    color: var(--text-color) !important;
+}
