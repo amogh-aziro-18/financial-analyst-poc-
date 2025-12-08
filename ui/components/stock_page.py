@@ -2,7 +2,7 @@ import streamlit as st
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
-from ui.components.utils_ui import get_price_data, get_stock_summary, calculate_risk_metrics
+from ui.components.utils_ui import get_price_data, get_stock_summary, calculate_risk_metrics, get_stock_news
 
 def render_stock_page(template="plotly_dark"):
     st.markdown("## 📈 Professional Stock Analysis")
@@ -41,13 +41,14 @@ def render_stock_page(template="plotly_dark"):
             )
             
             # TABS
-            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+            tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
                 "📊 Overview", 
                 "📈 Technicals", 
                 "💰 Fundamentals", 
                 "⚠️ Risk",
                 "📉 Financials",
-                "🎯 Signals"
+                "🎯 Signals",
+                "📰 News"
             ])
             
             # TAB 1: Overview
@@ -215,6 +216,49 @@ def render_stock_page(template="plotly_dark"):
                     st.warning(f"⚠️ Price < SMA20 < SMA50 - **STRONG DOWNTREND**")
                 else:
                     st.info("ℹ️ Mixed SMA signals - **NO CLEAR TREND**")
+
+            # TAB 7: News
+            with tab7:
+                st.subheader("📰 Latest News")
+                
+                news_data = get_stock_news(ticker)
+                
+                if news_data and news_data.get('count', 0) > 0:
+                    articles = news_data.get('articles', [])
+                    
+                    for article in articles:
+                        title = article.get('title', 'No Title')
+                        publisher = article.get('publisher', 'Unknown')
+                        link = article.get('link', '#')
+                        published = article.get('published', '')
+                        
+                        # Format published date if available
+                        pub_date_str = ""
+                        if published:
+                            try:
+                                from datetime import datetime
+                                pub_dt = datetime.fromisoformat(published.replace('Z', '+00:00'))
+                                pub_date_str = pub_dt.strftime('%Y-%m-%d %H:%M')
+                            except:
+                                pub_date_str = published
+                        
+                        # Display article card
+                        st.markdown(
+                            f"""
+                            <div style="padding: 1rem; margin-bottom: 1rem; background-color: var(--card-bg); border-radius: 0.5rem; border: 1px solid var(--border-color);">
+                                <h4 style="margin-top: 0; margin-bottom: 0.5rem;">
+                                    <a href="{link}" target="_blank" style="color: var(--primary-color); text-decoration: none;">{title}</a>
+                                </h4>
+                                <div style="color: var(--text-muted); font-size: 0.9rem;">
+                                    <span>📰 {publisher}</span>
+                                    {f' • <span>🕒 {pub_date_str}</span>' if pub_date_str else ''}
+                                </div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+                else:
+                    st.info("No news articles available for this ticker.")
                     
         else:
             st.error("Could not fetch data. Please check the ticker symbol.")
