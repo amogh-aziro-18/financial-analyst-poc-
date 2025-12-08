@@ -250,6 +250,33 @@ def get_stock_summary(ticker: str):
         print(f"Error fetching summary for {ticker}: {e}")
         return None
 
+def get_stock_news(ticker: str):
+    """
+    Fetches news articles for a stock from backend API.
+    """
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/get_financials",
+            params={"ticker": ticker, "include_news": True},
+            timeout=10
+        )
+        
+        if response.status_code != 200:
+            return None
+        
+        data = response.json()
+        news_articles = data.get('news', [])
+        
+        return {
+            "ticker": ticker.upper(),
+            "articles": news_articles,
+            "count": len(news_articles)
+        }
+    except Exception as e:
+        print(f"Error fetching news for {ticker}: {e}")
+        return None
+
+
 def get_chatbot_response(query: str, history: list):
     """
     Sends a query to the chatbot backend.

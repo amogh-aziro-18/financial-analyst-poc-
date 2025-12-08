@@ -67,6 +67,40 @@ def render_dashboard(template="plotly_dark"):
     if market_data:
         indices_data = market_data.get('indices', {})
         
+        # Market Sentiment Section
+        st.markdown("### 🌡️ Market Sentiment")
+        
+        # Extract sentiment data
+        sentiment = market_data.get('market_sentiment', 'Neutral')
+        score = market_data.get('sentiment_score', 50)
+        up_count = market_data.get('indices_up', 0)
+        down_count = market_data.get('indices_down', 0)
+        
+        # Determine color based on sentiment
+        if sentiment == 'Bullish':
+            sent_color = "green"
+        elif sentiment == 'Bearish':
+            sent_color = "red"
+        else:
+            sent_color = "orange"
+            
+        # Display Sentiment Metrics
+        s1, s2, s3, s4 = st.columns(4)
+        
+        with s1:
+            st.markdown(f"**Mood:** <span style='color:{sent_color}; font-weight:bold; font-size:1.2em'>{sentiment}</span>", unsafe_allow_html=True)
+        
+        with s2:
+            st.metric("Bullish Score", f"{score}%")
+            
+        with s3:
+            st.metric("Indices Up", f"{up_count} 🟢")
+            
+        with s4:
+            st.metric("Indices Down", f"{down_count} 🔴")
+            
+        st.markdown("---")
+
         # Top Metrics Row - Display major indices
         col1, col2, col3, col4 = st.columns(4)
         cols = [col1, col2, col3, col4]
