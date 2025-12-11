@@ -134,7 +134,7 @@ def render_alert_config():
         """
     **How it works:**
     1. Enter your email address and the stock ticker you want to monitor  
-    2. Choose your alert threshold (percentage drop or absolute price)  
+    2. Choose your alert threshold (percentage drop)  
     3. Click "Configure Alert" to activate monitoring  
     4. n8n receives this data via webhook and stores it in your database  
 
