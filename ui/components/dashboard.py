@@ -34,8 +34,7 @@ def get_price_from_backend(ticker):
             prices = [h['close'] for h in historical]
             dates = [h['date'] for h in historical]
             
-            # We now have OHLC data available if needed, but for dashboard simple line/candle is fine
-            # If candlestick_chart expects 'opens', 'highs', 'lows', we should provide them
+
             opens = [h.get('open', p) for h, p in zip(historical, prices)]
             highs = [h.get('high', p) for h, p in zip(historical, prices)]
             lows = [h.get('low', p) for h, p in zip(historical, prices)]
@@ -124,21 +123,21 @@ def render_dashboard(template="plotly_dark"):
     c1, c2 = st.columns([2, 1])
     
     with c1:
-        st.markdown("### 📈 Market Trends (SPY)")
+        st.markdown("### 📈 Market Trends (NIFTY 50)")
         
-        # Get SPY data for chart
-        spy_data = get_price_from_backend("SPY")
-        if spy_data and spy_data['history']['dates']:
+        # Get NIFTY 50 data for chart
+        nifty_data = get_price_from_backend("^NSEI")
+        if nifty_data and nifty_data['history']['dates']:
             # Use the shared chart component
             # It will fallback to Line Chart since we only have prices
-            fig = candlestick_chart(spy_data, "SPY", template=template)
+            fig = candlestick_chart(nifty_data, "NIFTY 50", template=template)
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Loading chart data...")
             
     with c2:
         st.markdown("### 👁️ Watchlist")
-        watchlist = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA"]
+        watchlist = ["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ICICIBANK.NS"]
         
         for ticker in watchlist:
             data = get_price_from_backend(ticker)

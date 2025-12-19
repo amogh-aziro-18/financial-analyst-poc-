@@ -224,7 +224,7 @@ def get_stock_summary(ticker: str):
         return {
             "summary": f"Financial data for {ticker}",
             "sector": "N/A",  # Backend doesn't provide this in current response
-            "market_cap": "N/A",
+            "market_cap": valuation.get('market_cap', 'N/A'),
             "pe_ratio": valuation.get('pe_ratio', 'N/A'),
             "info": {
                 "trailingPE": valuation.get('pe_ratio'),
@@ -241,9 +241,9 @@ def get_stock_summary(ticker: str):
                 "quickRatio": financial_health.get('quick_ratio'),
             },
             "financials": {
-                "income_statement": pd.DataFrame([financial_statements.get('income_statement', {})]),
-                "balance_sheet": pd.DataFrame([financial_statements.get('balance_sheet', {})]),
-                "cash_flow": pd.DataFrame([financial_statements.get('cash_flow', {})])
+                "income_statement": pd.DataFrame(financial_statements.get('income_statement', {})),
+                "balance_sheet": pd.DataFrame(financial_statements.get('balance_sheet', {})),
+                "cash_flow": pd.DataFrame(financial_statements.get('cash_flow', {}))
             }
         }
     except Exception as e:
