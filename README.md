@@ -285,14 +285,7 @@ This project is for **educational and demonstration purposes only**.
 It does **not** constitute financial advice and should not be relied upon for real investment decisions.  
 Market data may be delayed or inaccurate depending on upstream providers.
 
----
 
-## 📄 License
-
-This project is released under the **MIT License**.  
-See the [`LICENSE`](LICENSE) file for full details.
-
----
 
 ## 🙏 Acknowledgments
 
