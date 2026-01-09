@@ -20,7 +20,7 @@ class AgentModel:
     def __init__(self):
         self.client = Groq(api_key=GROQ_API_KEY)
         # Fast, cheap model – good enough for reasoning / explanations
-        self.model_name = "llama-3.1-8b-instant"
+        self.model_name = "llama-3.3-70b-versatile"
 
     def query_model(self, query: str) -> str:
         """

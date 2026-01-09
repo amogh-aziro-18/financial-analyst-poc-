@@ -12,7 +12,7 @@ Guidelines:
   valuation, risk, time horizon, diversification).
 - Assume prices may be slightly delayed; include a gentle disclaimer
   when talking about current prices.
-- Keep answers reasonably concise: 3–6 short paragraphs or bullets.
+- Keep answers reasonably concise: 3–7 short paragraphs or bullets.
 - If something is uncertain, say so openly instead of guessing.
 """
 
