@@ -5,6 +5,7 @@ from datetime import datetime
 import speech_recognition as sr
 from gtts import gTTS
 import streamlit as st
+import re
 
 import sys
 import os
@@ -410,7 +411,7 @@ st.caption("Smart, Indian-market-focused stock assistant powered by **Groq + YFi
 st.markdown("#### ✨ Try asking:")
 sugs = [
     "Price of INFY",
-    "Is TCS profitable?",
+    "Is TCS a good stock?",
     "Compare INFY and TCS",
     "Give me market updates",
     "Best stock for long term in India",
@@ -443,6 +444,7 @@ for i, s in enumerate(sugs):
 
 
 # -------------------------------------------------------------------
+# -------------------------------------------------------------------
 #  CHAT DISPLAY (SCROLLABLE)
 # -------------------------------------------------------------------
 st.markdown("#### 💭 Conversation")
@@ -454,6 +456,7 @@ with chat_container:
     for idx, msg in enumerate(st.session_state.chat_history):
         role = msg["role"]
         bubble_classes = ["chat-bubble"]
+
         if role == "user":
             row_class = "chat-row user"
         else:
@@ -463,8 +466,22 @@ with chat_container:
             bubble_classes.append("highlight")
 
         bubble_class_str = " ".join(bubble_classes)
-        safe_msg = msg["message"].replace("\n", "<br/>")
 
+        # ✅ SAFE MESSAGE HANDLING
+        if msg["role"] == "bot":
+            safe_msg = msg["message"]
+            safe_msg = safe_msg.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            safe_msg = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", safe_msg)
+            safe_msg = re.sub(
+                r"(https?://[^\s<]+)",
+                r'<a href="\1" target="_blank">\1</a>',
+                safe_msg,
+            )
+            safe_msg = safe_msg.replace("\n", "<br/>")
+        else:
+            safe_msg = msg["message"].replace("\n", "<br/>")
+
+        # ✅ THIS MUST BE INSIDE THE LOOP
         st.markdown(
             f"""
             <div class="{row_class}">
@@ -478,6 +495,7 @@ with chat_container:
         )
 
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 # -------------------------------------------------------------------
 #  INPUT BAR (FIXED POSITION EFFECT)
